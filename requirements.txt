@@ -1,6 +1,6 @@
-streamlit
-pandas
-plotly
+streamlit==1.15.0
+pandas==1.0.1
+plotly==5.18.0
 numpy
 google-cloud-bigquery
 google-auth-oauthlib 
