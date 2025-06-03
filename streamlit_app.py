@@ -418,7 +418,8 @@ st.markdown("CSV 파일을 업로드하거나 BigQuery에서 직접 데이터를
 
 with st.sidebar:
     st.markdown("<h4>1. 데이터 업로드</h4>", unsafe_allow_html=True)
-    
+
+    uploaded_file = None # uploaded_file 변수 초기화
     upload_method = st.radio("데이터 가져오기 방식:", ("CSV 파일 업로드", "BigQuery에서 직접 로드"), key="upload_method_selector")
 
     if upload_method == "CSV 파일 업로드":
