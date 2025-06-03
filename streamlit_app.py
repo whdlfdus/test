@@ -430,7 +430,7 @@ with st.sidebar:
         if uploaded_file:
             if st.button("CSV 데이터 로드/업데이트", key="load_csv_button_v2_14", use_container_width=True): 
                 load_data_from_csv(uploaded_file)
-                 st.rerun() 
+                st.rerun()() 
     
     elif upload_method == "BigQuery에서 직접 로드":
         st.info("BigQuery 접근을 위해서는 실행 환경에 GCP 인증 정보(예: 서비스 계정 키, ADC)가 설정되어 있어야 합니다. Streamlit Cloud의 경우 Secrets를 사용하세요.")
@@ -438,7 +438,7 @@ with st.sidebar:
         if st.button("BigQuery 데이터 로드", key="load_bq_button_v2_14", use_container_width=True): 
             if st.session_state.bq_query.strip():
                 load_data_from_bigquery(st.session_state.bq_query)
-                 st.rerun() 
+                st.rerun()() 
             else:
                 st.warning("BigQuery SQL 쿼리를 입력해주세요.")
 
@@ -659,19 +659,19 @@ with st.sidebar:
             if st.button("결측치 처리 적용", key="apply_mv_button_v2_14"): 
                 st.success("결측치 처리 설정이 저장되었습니다.") 
                 apply_all_processing_steps() 
-                 st.rerun()
+                st.rerun()()
 
         with st.expander("이상치 처리", expanded=False):
             if st.button("이상치 처리 적용", key="apply_ot_button_v2_14"): 
                 st.success("이상치 처리 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                 st.rerun()
+                st.rerun()()
 
         with st.expander("중복 데이터 처리", expanded=False):
             if st.button("중복 데이터 처리 적용", key="apply_dd_button_v2_14"): 
                 st.success("중복 데이터 처리 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                 st.rerun()
+                st.rerun()()
         st.divider()
 
         st.markdown("<h4>4. 데이터 변환</h4>", unsafe_allow_html=True)
@@ -679,13 +679,13 @@ with st.sidebar:
             if st.button("필터 적용", key="apply_filters_v2_14"): 
                 st.success("필터링 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                 st.rerun()
+                st.rerun()
 
         with st.expander("정렬", expanded=False):
             if st.button("정렬 적용", key="apply_sorts_v2_14"): 
                 st.success("정렬 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                 st.rerun()
+                st.rerun()
         st.divider()
         
         st.markdown("<h4>5. 데이터 구조 변경</h4>", unsafe_allow_html=True)
@@ -693,13 +693,13 @@ with st.sidebar:
             if st.button("피벗 적용", key="apply_pivot_v2_14"): 
                 st.success("피벗팅 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                 st.rerun()
+                st.rerun()
 
         with st.expander("언피벗팅 (Unpivoting / Melt)", expanded=False):
             if st.button("언피벗 적용", key="apply_unpivot_v2_14"): 
                 st.success("언피벗팅 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                 st.rerun()
+                st.rerun()()
         st.divider()
 
         st.markdown("<h4>6. 파생 변수 생성</h4>", unsafe_allow_html=True)
@@ -712,7 +712,7 @@ with st.sidebar:
                 else:
                     st.warning("새 변수 이름과 수식을 모두 입력해주세요.")
                 apply_all_processing_steps() 
-                 st.rerun()
+                st.rerun()()
 
         with st.expander("고급 파생 변수 편집기 (GUI)", expanded=st.session_state.show_adv_derived_var_builder):
             st.write("GUI를 사용하여 조건부 규칙 또는 창 함수 기반의 파생 변수를 생성 및 관리합니다.")
@@ -735,7 +735,7 @@ with st.sidebar:
                     for flag_key_suffix in ["rules_loaded_for_", "win_loaded_for_"]:
                         flag_key = f"adv_{flag_key_suffix}{st.session_state.editing_adv_derived_var_name}"
                         if st.session_state.get(flag_key): del st.session_state[flag_key]
-                 st.rerun()
+                st.rerun()()
 
             if st.session_state.show_adv_derived_var_builder:
                 is_editing_adv = st.session_state.editing_adv_derived_var_name is not None
@@ -786,10 +786,10 @@ with st.sidebar:
                         rule['then_value'] = cols_adv_cond[7].text_input("THEN 값", value=str(rule.get('then_value','')), key=f"adv_rule{rule['id']}_then")
                         if num_cond_rules > 1 and cols_adv_cond[8].button("➖", key=f"adv_remove_cond_rule_{rule['id']}", help="이 조건 삭제"):
                             st.session_state.adv_builder_conditional_rules.pop(i)
-                             st.rerun()
+                            st.rerun()()
                     if st.button("➕ ELSE IF 조건 추가", key="adv_add_cond_rule_btn"):
                         st.session_state.adv_builder_conditional_rules.append({'id': str(uuid.uuid4()), 'variable1': available_vars_for_adv[0] if available_vars_for_adv else '', 'operator1': '==', 'value1': '', 'logical_op': '', 'variable2': '', 'operator2': '==', 'value2': '', 'then_value': ''})
-                         st.rerun()
+                        st.rerun()()
                     st.session_state.adv_builder_else_value = st.text_input("ELSE 값 (모든 조건 불일치 시):", value=(st.session_state.adv_builder_else_value), key="adv_builder_else_input")
                 elif st.session_state.adv_builder_var_type == 'window':
                     win_conf_default = current_adv_def.get('config', {}) if is_editing_adv else {}
@@ -863,7 +863,7 @@ with st.sidebar:
                                 new_flag_key = f"adv_{flag_key_suffix}{new_adv_var_name_val}"
                                 if st.session_state.get(new_flag_key): del st.session_state[new_flag_key]
                             st.success(f"고급 파생 변수 '{new_adv_var_name_val}'이(가) 저장되었습니다.")
-                             st.rerun()
+                            st.rerun()()
                 if adv_btn_cols[1].button("🚫 고급 편집기 닫기", use_container_width=True, key="cancel_adv_derived_var_btn"):
                     st.session_state.show_adv_derived_var_builder = False
                     if st.session_state.editing_adv_derived_var_name: 
@@ -871,7 +871,7 @@ with st.sidebar:
                             flag_key = f"adv_{flag_key_suffix}{st.session_state.editing_adv_derived_var_name}"
                             if st.session_state.get(flag_key): del st.session_state[flag_key]
                     st.session_state.editing_adv_derived_var_name = None
-                     st.rerun()
+                    st.rerun()()
             st.markdown("--- **생성된 고급 파생 변수 목록** ---")
             if not st.session_state.advanced_derived_definitions:
                 st.caption("아직 생성된 고급 파생 변수가 없습니다.")
@@ -885,7 +885,7 @@ with st.sidebar:
                         for flag_key_suffix in ["rules_loaded_for_", "win_loaded_for_"]:
                             flag_key = f"adv_{flag_key_suffix}{adv_var_name_item}"
                             if st.session_state.get(flag_key): del st.session_state[flag_key]
-                         st.rerun() 
+                        st.rerun()() 
                     if cols_adv_item[2].button("🗑️", key=f"delete_adv_{adv_var_name_item}", help="이 고급 파생 변수 삭제"):
                         if adv_var_name_item in st.session_state.advanced_derived_definitions:
                             del st.session_state.advanced_derived_definitions[adv_var_name_item]
@@ -894,7 +894,7 @@ with st.sidebar:
                             st.session_state.editing_adv_derived_var_name = None
                         apply_all_processing_steps() 
                         st.success(f"고급 파생 변수 '{adv_var_name_item}'이(가) 삭제되었습니다.")
-                         st.rerun()
+                        st.rerun()()
 
     elif uploaded_file and not st.session_state.data_loaded_success:
         st.sidebar.warning("데이터 로드에 실패했습니다. 파일을 확인하고 다시 시도해주세요.")
