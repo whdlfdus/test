@@ -7,7 +7,7 @@ import numpy as np # For numeric type checking / conversion
 import uuid # For unique keys for filter/sort rules
 from google.cloud import bigquery # BigQuery 클라이언트 라이브러리
 from google.oauth2 import service_account # 서비스 계정 인증용 (선택 사항)
-import jason
+import json
 
 # NumPy bool8 호환성 문제 해결을 위한 코드 추가
 if not hasattr(np, 'bool8'):
