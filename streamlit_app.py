@@ -13,7 +13,7 @@ if not hasattr(np, 'bool8'):
     np.bool8 = np.bool_ # np.bool_을 np.bool8로 별칭 지정
 
 # --- 페이지 설정 ---
-st.set_page_config(layout="wide", page_title="데이터 분석 도구 v2.14") # 버전 업데이트
+st.set_page_config(layout="wide", page_title="데이터 분석 도구 v2.14") 
 
 # --- 초기 세션 상태 설정 ---
 def init_session_state():
@@ -28,25 +28,19 @@ def init_session_state():
         'pie_name_col': None, 'pie_value_col': None,
         'last_uploaded_filename': None,
         'data_loaded_success': False,
-        'df_raw_uploaded': None, # 원본 데이터 저장용
-        # 정제
+        'df_raw_uploaded': None, 
         'mv_selected_cols': [], 'mv_method': "결측치가 있는 행 전체 제거", 'mv_specific_value': "",
         'ot_selected_cols': [], 'ot_detection_method': "IQR 방식", 'ot_iqr_multiplier': 1.5,
         'ot_zscore_threshold': 3.0, 'ot_treatment_method': "결측치로 처리 (NaN으로 대체)",
         'dd_subset_cols': [], 'dd_keep_method': "첫 번째 행 유지",
-        # 변환
         'filter_rules': [],
         'filter_conjunction': 'AND',
-        # 정렬
         'sort_rules': [],
-        # 구조 변경
         'pivot_index_cols': [], 'pivot_columns_col': None,
         'pivot_values_cols': [], 'pivot_agg_func': 'mean',
         'unpivot_id_vars': [], 'unpivot_value_vars': [],
         'unpivot_var_name': 'variable', 'unpivot_value_name': 'value',
-        # 파생 변수 (기존 수식 기반)
         'derived_var_name': '', 'derived_var_formula': '',
-        # 고급 파생 변수 (신규)
         'advanced_derived_definitions': {}, 
         'show_adv_derived_var_builder': False,
         'editing_adv_derived_var_name': None,
@@ -61,20 +55,14 @@ def init_session_state():
         'adv_builder_window_order_by_dir': 'ASC',
         'adv_builder_window_lag_lead_offset': 1,
         'adv_builder_window_lag_lead_default': '',
-        # BigQuery
         'bq_query': "SELECT\n    name,\n    SUM(number) AS total_widgets\nFROM\n    `bigquery-public-data.usa_names.usa_1910_current`\nWHERE\n    name LIKE 'A%'\nGROUP BY\n    name\nORDER BY\n    total_widgets DESC\nLIMIT 100;",
-        # 분포 차트
         'hist_bins': None,
         'box_points': "outliers",
-        # 관계 차트
         'scatter_x_col': None, 'scatter_y_col': None,
         'scatter_color_col': "None", 'scatter_size_col': "None",
         'scatter_hover_name_col': "None",
-        # 밀도 플롯
         'density_value_cols': [], 'density_color_col': "None",
-        # 레이더 차트
         'radar_category_col': None, 'radar_value_cols': [],
-        # 히트맵
         'heatmap_corr_cols': []
     }
     for key, value in defaults.items():
@@ -108,7 +96,7 @@ def get_variable_type_for_derived(var_name):
     return 'string'
 
 def apply_advanced_derived_variables(df_input):
-    if df_input is None or not st.session_state.advanced_derived_definitions:
+    if df_input is None or df_input.empty or not st.session_state.advanced_derived_definitions:
         return df_input
     current_df = df_input.copy()
     for var_name, definition in st.session_state.advanced_derived_definitions.items():
@@ -116,7 +104,6 @@ def apply_advanced_derived_variables(df_input):
             if definition['type'] == 'conditional':
                 conditions = []
                 choices = []
-                # valid_rules_for_var = True # 이 플래그는 현재 사용되지 않음
                 for rule_idx, rule in enumerate(definition['rules']):
                     if not rule.get('variable1') or rule['variable1'] not in current_df.columns:
                         st.warning(f"고급 파생변수 '{var_name}', 규칙 {rule_idx+1}: 변수 '{rule.get('variable1')}'가 데이터에 없어 건너<0xEB><0><0x8F>니다.")
@@ -250,10 +237,10 @@ def apply_advanced_derived_variables(df_input):
                     else: st.warning(f"창 함수 '{var_name}': {func_name}는 대상 변수가 필요합니다."); result_series = pd.Series(pd.NA, index=current_df.index)
                 elif func_name == 'COUNT':
                     col_to_count = target_col if target_col else (df_for_window.columns[0] if not df_for_window.empty else None)
-                    if col_to_count and col_to_count in grouped_df_for_transform: # grouped_df_for_transform에 해당 컬럼이 있는지 확인
+                    if col_to_count and col_to_count in grouped_df_for_transform: 
                          result_series = grouped_df_for_transform[col_to_count].transform('count')
-                    elif col_to_count: # 그룹화되지 않았지만 target_col이 있는 경우
-                         result_series = pd.Series(len(grouped_df_for_transform), index=grouped_df_for_transform.index) if not partition_by_cols else grouped_df_for_transform[col_to_count].transform('size') # size는 그룹 크기
+                    elif col_to_count: 
+                         result_series = pd.Series(len(grouped_df_for_transform), index=grouped_df_for_transform.index) if not partition_by_cols else grouped_df_for_transform[col_to_count].transform('size') 
                     else: st.warning(f"창 함수 '{var_name}': COUNT 함수에 사용할 대상 열이 없습니다."); result_series = pd.Series(pd.NA, index=current_df.index)
                 
                 if result_series is not None: current_df[var_name] = result_series.reindex(current_df.index)
@@ -264,7 +251,7 @@ def apply_advanced_derived_variables(df_input):
                 except Exception: pass
         except Exception as e_adv_derived:
             st.error(f"고급 파생 변수 '{var_name}' 적용 중 오류 발생: {e_adv_derived}")
-            if var_name in current_df.columns and var_name not in df_input.columns: # 새로 추가된 컬럼인데 오류난 경우
+            if var_name in current_df.columns and var_name not in df_input.columns: 
                 current_df = current_df.drop(columns=[var_name])
     return current_df
 
@@ -280,7 +267,9 @@ def _reset_dependent_states(all_cols, num_cols):
         if not options: return [] if default_if_empty is None else default_if_empty
         valid_current = [val for val in current_value if val in options]
         if valid_current: return valid_current
-        return [options[0]] if options else [] # 옵션 있으면 첫번째, 없으면 빈 리스트
+        # 옵션이 있지만 현재 선택된 유효한 값이 없으면, 옵션의 첫 번째 값을 기본으로 선택 (또는 빈 리스트)
+        return [options[0]] if options else ([] if default_if_empty is None else default_if_empty)
+
 
     st.session_state.x_axis = get_safe_default_single(all_cols, st.session_state.x_axis)
     st.session_state.y_axis_single = get_safe_default_single(num_cols, st.session_state.y_axis_single)
@@ -306,7 +295,7 @@ def _reset_dependent_states(all_cols, num_cols):
         'hist_bins', 'box_points',
         'scatter_color_col', 'scatter_size_col', 'scatter_hover_name_col',
         'density_color_col', 
-        'radar_value_cols', # radar_category_col 은 아래에서 처리
+        'radar_value_cols', 
         'heatmap_corr_cols' 
     ]
     for key in keys_to_clear_or_default:
@@ -341,13 +330,12 @@ def _reset_dependent_states(all_cols, num_cols):
 
 def update_dataframe_states(df_new, source_name="데이터"):
     st.session_state.df_raw_uploaded = df_new.copy()
-    # df도 초기에는 df_raw_uploaded와 동일하게 설정. apply_all_processing_steps에서 최종 df가 결정됨.
     st.session_state.df = df_new.copy() 
     st.session_state.headers = list(df_new.columns)
     st.session_state.original_cols = list(df_new.columns) 
     numeric_cols, string_cols = get_column_types(df_new)
     st.session_state.numeric_headers = numeric_cols
-    st.session_state.string_headers = string_cols # string_headers는 현재 UI에서 직접 사용되지 않음
+    st.session_state.string_headers = string_cols 
     st.session_state.data_loaded_success = True
     st.session_state.last_uploaded_filename = source_name
 
@@ -355,7 +343,7 @@ def update_dataframe_states(df_new, source_name="데이터"):
     
     st.success(f"{source_name}가 성공적으로 로드 및 업데이트되었습니다! 모든 정제/변환/구조변경/파생변수 및 차트 설정이 일부 초기화됩니다.")
     
-    apply_all_processing_steps() # df_raw_uploaded 기준으로 모든 처리 적용하여 최종 df 생성
+    apply_all_processing_steps() 
 
 
 def load_data_from_csv(uploaded_file):
@@ -370,23 +358,40 @@ def load_data_from_csv(uploaded_file):
         return False
 
 def load_data_from_bigquery(query, project_id=None):
+    st.info(f"BigQuery 쿼리 실행 시도: {query[:100]}...") # 쿼리 일부 로깅
     try:
-        client = bigquery.Client(project=project_id) if project_id else bigquery.Client()
+        # Streamlit Cloud Secrets에서 서비스 계정 정보 로드 시도
+        try:
+            gcp_service_account_dict = json.loads(st.secrets["gcp_service_account"])
+            credentials = service_account.Credentials.from_service_account_info(gcp_service_account_dict)
+            client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+            st.info("Streamlit Secrets를 사용하여 BigQuery 클라이언트 초기화 성공.")
+        except Exception as e_secrets:
+            st.warning(f"Streamlit Secrets 로드 실패 (환경 ADC 사용 시도): {e_secrets}")
+            client = bigquery.Client(project=project_id) if project_id else bigquery.Client()
+            st.info("환경 기본 ADC를 사용하여 BigQuery 클라이언트 초기화 시도.")
+
         query_job = client.query(query) 
+        st.info("BigQuery 쿼리 작업 제출 완료, 결과 대기 중...")
         df_new = query_job.to_dataframe() 
+        st.info(f"BigQuery 결과 수신: {len(df_new)} 행")
+        
         if df_new.empty:
             st.warning("BigQuery 쿼리 결과 데이터가 없습니다.")
-        update_dataframe_states(df_new, source_name="BigQuery") # 빈 DF도 처리
+        
+        update_dataframe_states(df_new, source_name="BigQuery")
         return True
     except Exception as e:
-        st.error(f"BigQuery 데이터 로드 중 오류 발생: {e}")
+        st.error(f"BigQuery 데이터 로드 중 심각한 오류 발생: {e}")
+        import traceback
+        st.error(f"Traceback: {traceback.format_exc()}")
         st.session_state.data_loaded_success = False
         st.session_state.df = None; st.session_state.headers = []; st.session_state.numeric_headers = []; 
         return False
 
 def apply_all_processing_steps():
     if 'df_raw_uploaded' not in st.session_state or st.session_state.df_raw_uploaded is None:
-        st.session_state.df = None # 원본 없으면 작업 df도 None
+        st.session_state.df = None 
         st.session_state.headers = []
         st.session_state.numeric_headers = []
         return
@@ -399,8 +404,6 @@ def apply_all_processing_steps():
     
     if st.session_state.derived_var_name.strip() and st.session_state.derived_var_formula.strip():
         try:
-            # 수식 기반 파생 변수는 다른 모든 처리 *이후* 또는 *이전*에 적용될지 순서 정의 필요.
-            # 현재는 고급 파생 변수 *이전*에 적용.
             current_df[st.session_state.derived_var_name.strip()] = current_df.eval(st.session_state.derived_var_formula)
         except Exception as e_formula_derived:
             st.warning(f"수식 기반 파생변수 '{st.session_state.derived_var_name}' 적용 중 오류: {e_formula_derived}")
@@ -418,8 +421,8 @@ st.markdown("CSV 파일을 업로드하거나 BigQuery에서 직접 데이터를
 
 with st.sidebar:
     st.markdown("<h4>1. 데이터 업로드</h4>", unsafe_allow_html=True)
-
-    uploaded_file = None # uploaded_file 변수 초기화
+    
+    uploaded_file = None # NameError 방지를 위해 항상 초기화
     upload_method = st.radio("데이터 가져오기 방식:", ("CSV 파일 업로드", "BigQuery에서 직접 로드"), key="upload_method_selector")
 
     if upload_method == "CSV 파일 업로드":
@@ -427,22 +430,21 @@ with st.sidebar:
         if uploaded_file:
             if st.button("CSV 데이터 로드/업데이트", key="load_csv_button_v2_14", use_container_width=True): 
                 load_data_from_csv(uploaded_file)
-                st.rerun() # 모든 rerun 호출을 experimental_rerun으로 통일
+                 st.rerun() 
     
     elif upload_method == "BigQuery에서 직접 로드":
-        st.info("BigQuery 접근을 위해서는 실행 환경에 GCP 인증 정보(예: 서비스 계정 키, ADC)가 설정되어 있어야 합니다.")
+        st.info("BigQuery 접근을 위해서는 실행 환경에 GCP 인증 정보(예: 서비스 계정 키, ADC)가 설정되어 있어야 합니다. Streamlit Cloud의 경우 Secrets를 사용하세요.")
         st.session_state.bq_query = st.text_area("BigQuery SQL 쿼리 입력:", value=st.session_state.bq_query, height=200, key="bq_query_input")
         if st.button("BigQuery 데이터 로드", key="load_bq_button_v2_14", use_container_width=True): 
             if st.session_state.bq_query.strip():
                 load_data_from_bigquery(st.session_state.bq_query)
-                st.rerun() # 오류 발생 지점
+                 st.rerun() 
             else:
                 st.warning("BigQuery SQL 쿼리를 입력해주세요.")
 
     st.divider()
 
     df = st.session_state.df
-    # UI 렌더링 시점에는 apply_all_processing_steps가 완료된 후의 상태를 사용
     headers = st.session_state.headers 
     numeric_headers = st.session_state.numeric_headers
 
@@ -473,10 +475,7 @@ with st.sidebar:
             is_heatmap_chart = (chart_type == '히트맵 (Heatmap - 상관관계)')
 
             if not is_pie_chart and not is_distribution_chart and not is_relationship_chart and not is_radar_chart and not is_heatmap_chart: 
-                if not headers: st.warning("X축으로 사용할 수 있는 컬럼이 없습니다."); current_x = None
-                else:
-                    current_x = st.session_state.x_axis
-                    if current_x not in headers or current_x is None: current_x = headers[0]
+                current_x = st.session_state.x_axis
                 st.session_state.x_axis = st.selectbox("X축", headers if headers else ["선택 불가"], 
                                                        index=headers.index(current_x) if headers and current_x in headers else 0, 
                                                        disabled=not headers, key="x_axis_select_v2_14_common")
@@ -486,33 +485,36 @@ with st.sidebar:
                 if current_group_by not in group_by_options: current_group_by = "None"
                 st.session_state.group_by_col = st.selectbox("그룹화 기준 열 (선택)", group_by_options, 
                                                              index=group_by_options.index(current_group_by) if current_group_by in group_by_options else 0, 
-                                                             disabled=not group_by_options[1:], # "None" 제외하고 옵션 없으면 비활성화
+                                                             disabled=not group_by_options[1:], 
                                                              key="group_by_select_v2_14_common")
                 
                 st.session_state.agg_method = st.selectbox("집계 방식", ['Sum', 'Mean', 'Median'], index=['Sum', 'Mean', 'Median'].index(st.session_state.agg_method), key="agg_method_select_v2_14_common")
 
                 if st.session_state.group_by_col != "None": 
                     available_measure_cols = [h for h in numeric_headers if h != st.session_state.x_axis and h != st.session_state.group_by_col]
-                    if not available_measure_cols: st.warning("그룹화 시 측정값으로 사용할 숫자형 열이 없습니다."); st.session_state.y_axis_single = None
-                    else:
-                        current_y_single_grouped = st.session_state.y_axis_single
-                        if current_y_single_grouped not in available_measure_cols or current_y_single_grouped is None: current_y_single_grouped = available_measure_cols[0]
-                        st.session_state.y_axis_single = st.selectbox("측정값 (기본 Y축)", available_measure_cols, index=available_measure_cols.index(current_y_single_grouped), key="y_single_grouped_select_v2_14")
+                    current_y_single_grouped = st.session_state.y_axis_single
+                    if not available_measure_cols: st.warning("그룹화 시 측정값으로 사용할 숫자형 열이 없습니다."); current_y_single_grouped = None
+                    elif current_y_single_grouped not in available_measure_cols or current_y_single_grouped is None: current_y_single_grouped = available_measure_cols[0]
+                    st.session_state.y_axis_single = st.selectbox("측정값 (기본 Y축)", available_measure_cols if available_measure_cols else ["선택 불가"], 
+                                                                 index=available_measure_cols.index(current_y_single_grouped) if available_measure_cols and current_y_single_grouped in available_measure_cols else 0, 
+                                                                 disabled=not available_measure_cols, key="y_single_grouped_select_v2_14")
                 else: 
                     if chart_type in ['선 (Line)', '누적 영역 (Stacked Area)', '누적 막대 (Stacked Bar)']: 
                         available_y_multi = [h for h in numeric_headers if h != st.session_state.x_axis]
-                        if not available_y_multi: st.warning(f"{chart_type}에 사용할 숫자형 Y축 열이 없습니다."); st.session_state.y_axis_multiple = []
+                        if not available_y_multi: st.warning(f"{chart_type}에 사용할 숫자형 Y축 열이 없습니다."); current_y_multi = []
                         else:
                             current_y_multi = [val for val in st.session_state.y_axis_multiple if val in available_y_multi]
                             if not current_y_multi and available_y_multi: current_y_multi = [available_y_multi[0]] 
-                            st.session_state.y_axis_multiple = st.multiselect("기본 Y축 (다중 가능)", available_y_multi, default=current_y_multi, key="y_multi_select_v2_14")
+                        st.session_state.y_axis_multiple = st.multiselect("기본 Y축 (다중 가능)", available_y_multi, default=current_y_multi, 
+                                                                          disabled=not available_y_multi, key="y_multi_select_v2_14")
                     elif chart_type == '막대 (Bar)': 
                         available_y_single_bar = [h for h in numeric_headers if h != st.session_state.x_axis]
-                        if not available_y_single_bar: st.warning("막대 그래프에 사용할 숫자형 Y축 열이 없습니다."); st.session_state.y_axis_single = None
-                        else:
-                            current_y_single_bar = st.session_state.y_axis_single
-                            if current_y_single_bar not in available_y_single_bar or current_y_single_bar is None: current_y_single_bar = available_y_single_bar[0]
-                            st.session_state.y_axis_single = st.selectbox("기본 Y축", available_y_single_bar, index=available_y_single_bar.index(current_y_single_bar), key="y_single_bar_select_v2_14")
+                        current_y_single_bar = st.session_state.y_axis_single
+                        if not available_y_single_bar: st.warning("막대 그래프에 사용할 숫자형 Y축 열이 없습니다."); current_y_single_bar = None
+                        elif current_y_single_bar not in available_y_single_bar or current_y_single_bar is None: current_y_single_bar = available_y_single_bar[0]
+                        st.session_state.y_axis_single = st.selectbox("기본 Y축", available_y_single_bar if available_y_single_bar else ["선택 불가"], 
+                                                                     index=available_y_single_bar.index(current_y_single_bar) if available_y_single_bar and current_y_single_bar in available_y_single_bar else 0, 
+                                                                     disabled=not available_y_single_bar, key="y_single_bar_select_v2_14")
                 
                 if not is_stacked_chart: 
                     primary_y_selection_for_secondary = []
@@ -655,55 +657,49 @@ with st.sidebar:
             st.session_state.mv_method = st.selectbox("처리 방법", options=mv_method_options, index=mv_method_options.index(st.session_state.mv_method), key="mv_method_v2_14")
             if st.session_state.mv_method == "특정 값으로 채우기": st.session_state.mv_specific_value = st.text_input("채울 특정 값", value=st.session_state.mv_specific_value, key="mv_specific_val_v2_14")
             if st.button("결측치 처리 적용", key="apply_mv_button_v2_14"): 
-                st.success("결측치 처리 설정이 저장되었습니다.") # 실제 적용은 apply_all_processing_steps에서
+                st.success("결측치 처리 설정이 저장되었습니다.") 
                 apply_all_processing_steps() 
-                st.rerun()
+                 st.rerun()
 
         with st.expander("이상치 처리", expanded=False):
-            # ... (UI는 기존과 동일, 단 options 등은 headers, numeric_headers 사용 시 방어 코드 필요)
             if st.button("이상치 처리 적용", key="apply_ot_button_v2_14"): 
                 st.success("이상치 처리 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                st.rerun()
+                 st.rerun()
 
         with st.expander("중복 데이터 처리", expanded=False):
-            # ... (UI는 기존과 동일)
             if st.button("중복 데이터 처리 적용", key="apply_dd_button_v2_14"): 
                 st.success("중복 데이터 처리 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                st.rerun()
+                 st.rerun()
         st.divider()
 
         st.markdown("<h4>4. 데이터 변환</h4>", unsafe_allow_html=True)
         with st.expander("필터링", expanded=False):
-            # ... (UI는 기존과 동일)
             if st.button("필터 적용", key="apply_filters_v2_14"): 
                 st.success("필터링 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                st.rerun()
+                 st.rerun()
 
         with st.expander("정렬", expanded=False):
-            # ... (UI는 기존과 동일)
             if st.button("정렬 적용", key="apply_sorts_v2_14"): 
                 st.success("정렬 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                st.rerun()
+                 st.rerun()
         st.divider()
         
         st.markdown("<h4>5. 데이터 구조 변경</h4>", unsafe_allow_html=True)
         with st.expander("피벗팅 (Pivoting)", expanded=False):
-            # ... (UI는 기존과 동일)
             if st.button("피벗 적용", key="apply_pivot_v2_14"): 
                 st.success("피벗팅 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                st.rerun()
+                 st.rerun()
 
         with st.expander("언피벗팅 (Unpivoting / Melt)", expanded=False):
-            # ... (UI는 기존과 동일)
             if st.button("언피벗 적용", key="apply_unpivot_v2_14"): 
                 st.success("언피벗팅 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                st.rerun()
+                 st.rerun()
         st.divider()
 
         st.markdown("<h4>6. 파생 변수 생성</h4>", unsafe_allow_html=True)
@@ -716,7 +712,7 @@ with st.sidebar:
                 else:
                     st.warning("새 변수 이름과 수식을 모두 입력해주세요.")
                 apply_all_processing_steps() 
-                st.rerun()
+                 st.rerun()
 
         with st.expander("고급 파생 변수 편집기 (GUI)", expanded=st.session_state.show_adv_derived_var_builder):
             st.write("GUI를 사용하여 조건부 규칙 또는 창 함수 기반의 파생 변수를 생성 및 관리합니다.")
@@ -739,7 +735,7 @@ with st.sidebar:
                     for flag_key_suffix in ["rules_loaded_for_", "win_loaded_for_"]:
                         flag_key = f"adv_{flag_key_suffix}{st.session_state.editing_adv_derived_var_name}"
                         if st.session_state.get(flag_key): del st.session_state[flag_key]
-                st.rerun()
+                 st.rerun()
 
             if st.session_state.show_adv_derived_var_builder:
                 is_editing_adv = st.session_state.editing_adv_derived_var_name is not None
@@ -790,10 +786,10 @@ with st.sidebar:
                         rule['then_value'] = cols_adv_cond[7].text_input("THEN 값", value=str(rule.get('then_value','')), key=f"adv_rule{rule['id']}_then")
                         if num_cond_rules > 1 and cols_adv_cond[8].button("➖", key=f"adv_remove_cond_rule_{rule['id']}", help="이 조건 삭제"):
                             st.session_state.adv_builder_conditional_rules.pop(i)
-                            st.rerun()
+                             st.rerun()
                     if st.button("➕ ELSE IF 조건 추가", key="adv_add_cond_rule_btn"):
                         st.session_state.adv_builder_conditional_rules.append({'id': str(uuid.uuid4()), 'variable1': available_vars_for_adv[0] if available_vars_for_adv else '', 'operator1': '==', 'value1': '', 'logical_op': '', 'variable2': '', 'operator2': '==', 'value2': '', 'then_value': ''})
-                        st.rerun()
+                         st.rerun()
                     st.session_state.adv_builder_else_value = st.text_input("ELSE 값 (모든 조건 불일치 시):", value=(st.session_state.adv_builder_else_value), key="adv_builder_else_input")
                 elif st.session_state.adv_builder_var_type == 'window':
                     win_conf_default = current_adv_def.get('config', {}) if is_editing_adv else {}
@@ -867,7 +863,7 @@ with st.sidebar:
                                 new_flag_key = f"adv_{flag_key_suffix}{new_adv_var_name_val}"
                                 if st.session_state.get(new_flag_key): del st.session_state[new_flag_key]
                             st.success(f"고급 파생 변수 '{new_adv_var_name_val}'이(가) 저장되었습니다.")
-                            st.rerun()
+                             st.rerun()
                 if adv_btn_cols[1].button("🚫 고급 편집기 닫기", use_container_width=True, key="cancel_adv_derived_var_btn"):
                     st.session_state.show_adv_derived_var_builder = False
                     if st.session_state.editing_adv_derived_var_name: 
@@ -875,7 +871,7 @@ with st.sidebar:
                             flag_key = f"adv_{flag_key_suffix}{st.session_state.editing_adv_derived_var_name}"
                             if st.session_state.get(flag_key): del st.session_state[flag_key]
                     st.session_state.editing_adv_derived_var_name = None
-                    st.rerun()
+                     st.rerun()
             st.markdown("--- **생성된 고급 파생 변수 목록** ---")
             if not st.session_state.advanced_derived_definitions:
                 st.caption("아직 생성된 고급 파생 변수가 없습니다.")
@@ -889,7 +885,7 @@ with st.sidebar:
                         for flag_key_suffix in ["rules_loaded_for_", "win_loaded_for_"]:
                             flag_key = f"adv_{flag_key_suffix}{adv_var_name_item}"
                             if st.session_state.get(flag_key): del st.session_state[flag_key]
-                        st.rerun() 
+                         st.rerun() 
                     if cols_adv_item[2].button("🗑️", key=f"delete_adv_{adv_var_name_item}", help="이 고급 파생 변수 삭제"):
                         if adv_var_name_item in st.session_state.advanced_derived_definitions:
                             del st.session_state.advanced_derived_definitions[adv_var_name_item]
@@ -898,7 +894,7 @@ with st.sidebar:
                             st.session_state.editing_adv_derived_var_name = None
                         apply_all_processing_steps() 
                         st.success(f"고급 파생 변수 '{adv_var_name_item}'이(가) 삭제되었습니다.")
-                        st.rerun()
+                         st.rerun()
 
     elif uploaded_file and not st.session_state.data_loaded_success:
         st.sidebar.warning("데이터 로드에 실패했습니다. 파일을 확인하고 다시 시도해주세요.")
@@ -1133,8 +1129,6 @@ else:
         if fig:
             chart_placeholder.plotly_chart(fig, use_container_width=True)
         else:
-            # 이 부분은 valid_chart_params = False 일 때 이미 st.stop()으로 중단되거나,
-            # 각 차트 타입별 조건문에서 st.stop() 또는 경고 메시지로 처리됨
             if df is not None and headers and st.session_state.data_loaded_success and valid_chart_params:
                  chart_placeholder.info("차트 설정을 확인하거나, 선택한 차트 타입에 필요한 모든 값을 입력해주세요.")
 
