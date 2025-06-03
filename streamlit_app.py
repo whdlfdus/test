@@ -7,7 +7,7 @@ import numpy as np # For numeric type checking / conversion
 import uuid # For unique keys for filter/sort rules
 from google.cloud import bigquery # BigQuery 클라이언트 라이브러리
 from google.oauth2 import service_account # 서비스 계정 인증용 (선택 사항)
-import json
+import json # JSON 모듈 임포트 추가
 
 # NumPy bool8 호환성 문제 해결을 위한 코드 추가
 if not hasattr(np, 'bool8'):
@@ -268,7 +268,6 @@ def _reset_dependent_states(all_cols, num_cols):
         if not options: return [] if default_if_empty is None else default_if_empty
         valid_current = [val for val in current_value if val in options]
         if valid_current: return valid_current
-        # 옵션이 있지만 현재 선택된 유효한 값이 없으면, 옵션의 첫 번째 값을 기본으로 선택 (또는 빈 리스트)
         return [options[0]] if options else ([] if default_if_empty is None else default_if_empty)
 
 
@@ -359,18 +358,28 @@ def load_data_from_csv(uploaded_file):
         return False
 
 def load_data_from_bigquery(query, project_id=None):
-    st.info(f"BigQuery 쿼리 실행 시도: {query[:100]}...") # 쿼리 일부 로깅
+    st.info(f"BigQuery 쿼리 실행 시도: {query[:100]}...") 
     try:
-        # Streamlit Cloud Secrets에서 서비스 계정 정보 로드 시도
+        client = None
         try:
-            gcp_service_account_dict = json.loads(st.secrets["gcp_service_account"])
-            credentials = service_account.Credentials.from_service_account_info(gcp_service_account_dict)
-            client = bigquery.Client(credentials=credentials, project=credentials.project_id)
-            st.info("Streamlit Secrets를 사용하여 BigQuery 클라이언트 초기화 성공.")
+            gcp_service_account_str = st.secrets.get("gcp_service_account")
+            if gcp_service_account_str:
+                gcp_service_account_dict = json.loads(gcp_service_account_str)
+                credentials = service_account.Credentials.from_service_account_info(gcp_service_account_dict)
+                client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+                st.info("Streamlit Secrets를 사용하여 BigQuery 클라이언트 초기화 성공.")
+            else:
+                st.info("Streamlit Secrets에 'gcp_service_account'가 설정되지 않았습니다. 환경 ADC를 사용합니다.")
+                client = bigquery.Client(project=project_id) if project_id else bigquery.Client()
+
         except Exception as e_secrets:
-            st.warning(f"Streamlit Secrets 로드 실패 (환경 ADC 사용 시도): {e_secrets}")
+            st.warning(f"Streamlit Secrets 처리 중 오류 발생 (환경 ADC 사용 시도): {e_secrets}")
             client = bigquery.Client(project=project_id) if project_id else bigquery.Client()
             st.info("환경 기본 ADC를 사용하여 BigQuery 클라이언트 초기화 시도.")
+
+        if client is None:
+            st.error("BigQuery 클라이언트 초기화에 실패했습니다.")
+            return False
 
         query_job = client.query(query) 
         st.info("BigQuery 쿼리 작업 제출 완료, 결과 대기 중...")
@@ -423,7 +432,7 @@ st.markdown("CSV 파일을 업로드하거나 BigQuery에서 직접 데이터를
 with st.sidebar:
     st.markdown("<h4>1. 데이터 업로드</h4>", unsafe_allow_html=True)
     
-    uploaded_file = None # NameError 방지를 위해 항상 초기화
+    uploaded_file = None 
     upload_method = st.radio("데이터 가져오기 방식:", ("CSV 파일 업로드", "BigQuery에서 직접 로드"), key="upload_method_selector")
 
     if upload_method == "CSV 파일 업로드":
@@ -431,7 +440,7 @@ with st.sidebar:
         if uploaded_file:
             if st.button("CSV 데이터 로드/업데이트", key="load_csv_button_v2_14", use_container_width=True): 
                 load_data_from_csv(uploaded_file)
-                st.rerun()() 
+                st.rerun() 
     
     elif upload_method == "BigQuery에서 직접 로드":
         st.info("BigQuery 접근을 위해서는 실행 환경에 GCP 인증 정보(예: 서비스 계정 키, ADC)가 설정되어 있어야 합니다. Streamlit Cloud의 경우 Secrets를 사용하세요.")
@@ -439,7 +448,7 @@ with st.sidebar:
         if st.button("BigQuery 데이터 로드", key="load_bq_button_v2_14", use_container_width=True): 
             if st.session_state.bq_query.strip():
                 load_data_from_bigquery(st.session_state.bq_query)
-                st.rerun()() 
+                st.rerun() 
             else:
                 st.warning("BigQuery SQL 쿼리를 입력해주세요.")
 
@@ -649,7 +658,6 @@ with st.sidebar:
                                                                index=available_pie_values.index(current_pie_value) if available_pie_values and current_pie_value in available_pie_values else 0, 
                                                                disabled=not available_pie_values, key="pie_value_select_v2_14")
                 st.session_state.group_by_col = "None"; st.session_state.y_axis_secondary = "None"; st.session_state.agg_method = 'Sum'
-            # --- 차트 상세 설정 UI 끝 ---
         st.divider()
         st.markdown("<h4>3. 데이터 정제</h4>", unsafe_allow_html=True)
         with st.expander("결측치 처리", expanded=False):
@@ -660,19 +668,19 @@ with st.sidebar:
             if st.button("결측치 처리 적용", key="apply_mv_button_v2_14"): 
                 st.success("결측치 처리 설정이 저장되었습니다.") 
                 apply_all_processing_steps() 
-                st.rerun()()
+                st.rerun()
 
         with st.expander("이상치 처리", expanded=False):
             if st.button("이상치 처리 적용", key="apply_ot_button_v2_14"): 
                 st.success("이상치 처리 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                st.rerun()()
+                st.rerun()
 
         with st.expander("중복 데이터 처리", expanded=False):
             if st.button("중복 데이터 처리 적용", key="apply_dd_button_v2_14"): 
                 st.success("중복 데이터 처리 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                st.rerun()()
+                st.rerun()
         st.divider()
 
         st.markdown("<h4>4. 데이터 변환</h4>", unsafe_allow_html=True)
@@ -700,7 +708,7 @@ with st.sidebar:
             if st.button("언피벗 적용", key="apply_unpivot_v2_14"): 
                 st.success("언피벗팅 설정이 저장되었습니다.")
                 apply_all_processing_steps()
-                st.rerun()()
+                st.rerun()
         st.divider()
 
         st.markdown("<h4>6. 파생 변수 생성</h4>", unsafe_allow_html=True)
@@ -713,7 +721,7 @@ with st.sidebar:
                 else:
                     st.warning("새 변수 이름과 수식을 모두 입력해주세요.")
                 apply_all_processing_steps() 
-                st.rerun()()
+                st.rerun()
 
         with st.expander("고급 파생 변수 편집기 (GUI)", expanded=st.session_state.show_adv_derived_var_builder):
             st.write("GUI를 사용하여 조건부 규칙 또는 창 함수 기반의 파생 변수를 생성 및 관리합니다.")
@@ -736,7 +744,7 @@ with st.sidebar:
                     for flag_key_suffix in ["rules_loaded_for_", "win_loaded_for_"]:
                         flag_key = f"adv_{flag_key_suffix}{st.session_state.editing_adv_derived_var_name}"
                         if st.session_state.get(flag_key): del st.session_state[flag_key]
-                st.rerun()()
+                st.rerun()
 
             if st.session_state.show_adv_derived_var_builder:
                 is_editing_adv = st.session_state.editing_adv_derived_var_name is not None
@@ -787,10 +795,10 @@ with st.sidebar:
                         rule['then_value'] = cols_adv_cond[7].text_input("THEN 값", value=str(rule.get('then_value','')), key=f"adv_rule{rule['id']}_then")
                         if num_cond_rules > 1 and cols_adv_cond[8].button("➖", key=f"adv_remove_cond_rule_{rule['id']}", help="이 조건 삭제"):
                             st.session_state.adv_builder_conditional_rules.pop(i)
-                            st.rerun()()
+                            st.rerun()
                     if st.button("➕ ELSE IF 조건 추가", key="adv_add_cond_rule_btn"):
                         st.session_state.adv_builder_conditional_rules.append({'id': str(uuid.uuid4()), 'variable1': available_vars_for_adv[0] if available_vars_for_adv else '', 'operator1': '==', 'value1': '', 'logical_op': '', 'variable2': '', 'operator2': '==', 'value2': '', 'then_value': ''})
-                        st.rerun()()
+                        st.rerun()
                     st.session_state.adv_builder_else_value = st.text_input("ELSE 값 (모든 조건 불일치 시):", value=(st.session_state.adv_builder_else_value), key="adv_builder_else_input")
                 elif st.session_state.adv_builder_var_type == 'window':
                     win_conf_default = current_adv_def.get('config', {}) if is_editing_adv else {}
@@ -864,7 +872,7 @@ with st.sidebar:
                                 new_flag_key = f"adv_{flag_key_suffix}{new_adv_var_name_val}"
                                 if st.session_state.get(new_flag_key): del st.session_state[new_flag_key]
                             st.success(f"고급 파생 변수 '{new_adv_var_name_val}'이(가) 저장되었습니다.")
-                            st.rerun()()
+                            st.rerun()
                 if adv_btn_cols[1].button("🚫 고급 편집기 닫기", use_container_width=True, key="cancel_adv_derived_var_btn"):
                     st.session_state.show_adv_derived_var_builder = False
                     if st.session_state.editing_adv_derived_var_name: 
@@ -872,7 +880,7 @@ with st.sidebar:
                             flag_key = f"adv_{flag_key_suffix}{st.session_state.editing_adv_derived_var_name}"
                             if st.session_state.get(flag_key): del st.session_state[flag_key]
                     st.session_state.editing_adv_derived_var_name = None
-                    st.rerun()()
+                    st.rerun()
             st.markdown("--- **생성된 고급 파생 변수 목록** ---")
             if not st.session_state.advanced_derived_definitions:
                 st.caption("아직 생성된 고급 파생 변수가 없습니다.")
@@ -886,7 +894,7 @@ with st.sidebar:
                         for flag_key_suffix in ["rules_loaded_for_", "win_loaded_for_"]:
                             flag_key = f"adv_{flag_key_suffix}{adv_var_name_item}"
                             if st.session_state.get(flag_key): del st.session_state[flag_key]
-                        st.rerun()() 
+                        st.rerun() 
                     if cols_adv_item[2].button("🗑️", key=f"delete_adv_{adv_var_name_item}", help="이 고급 파생 변수 삭제"):
                         if adv_var_name_item in st.session_state.advanced_derived_definitions:
                             del st.session_state.advanced_derived_definitions[adv_var_name_item]
@@ -895,7 +903,7 @@ with st.sidebar:
                             st.session_state.editing_adv_derived_var_name = None
                         apply_all_processing_steps() 
                         st.success(f"고급 파생 변수 '{adv_var_name_item}'이(가) 삭제되었습니다.")
-                        st.rerun()()
+                        st.rerun()
 
     elif uploaded_file and not st.session_state.data_loaded_success:
         st.sidebar.warning("데이터 로드에 실패했습니다. 파일을 확인하고 다시 시도해주세요.")
@@ -938,7 +946,6 @@ else:
         is_radar_chart = (chart_type == '레이더 차트 (Radar Chart)')
         is_heatmap_chart = (chart_type == '히트맵 (Heatmap - 상관관계)')
 
-        # 차트 생성 전 필수 값 유효성 검사 (UI 렌더링 시에도 유사한 방어 로직 필요)
         valid_chart_params = True
         if is_pie_chart:
             if not pie_name_col or not pie_value_col or pie_name_col not in headers or pie_value_col not in numeric_headers:
@@ -961,15 +968,14 @@ else:
         elif is_heatmap_chart:
             if not heatmap_cols or len(heatmap_cols) < 2 or not all(y in numeric_headers for y in heatmap_cols):
                 chart_placeholder.warning("히트맵: 사용할 숫자형 열을 2개 이상 선택해주세요."); valid_chart_params = False
-        elif not x_axis or x_axis not in headers: # 일반 차트 (막대, 선 등)
+        elif not x_axis or x_axis not in headers: 
             if headers: chart_placeholder.warning("X축을 선택해주세요."); valid_chart_params = False
             else: chart_placeholder.warning("데이터에 컬럼이 없어 X축을 선택할 수 없습니다."); valid_chart_params = False
         
         if not valid_chart_params:
             st.stop()
 
-
-        processed_df_for_chart = df.copy() # df는 apply_all_processing_steps를 거친 상태
+        processed_df_for_chart = df.copy() 
         agg_functions = {'Sum': 'sum', 'Mean': 'mean', 'Median': 'median'}
         current_agg_func = agg_functions[agg_method]
         y_val_for_chart = None
@@ -980,7 +986,7 @@ else:
             pie_data_agg = processed_df_for_chart.groupby(pie_name_col, as_index=False).agg({pie_value_col: current_agg_func})
             fig = px.pie(pie_data_agg, names=pie_name_col, values=pie_value_col, title=f"{pie_name_col} 별 {pie_value_col} 분포 ({agg_method} 기준)")
         elif chart_type == '히스토그램 (Histogram)':
-            y_val_for_hist = y_multiple[0] if y_multiple else None # y_multiple은 이미 숫자형으로 검증됨
+            y_val_for_hist = y_multiple[0] if y_multiple else None 
             if not y_val_for_hist : chart_placeholder.warning("히스토그램에 사용할 값 열을 선택해주세요."); st.stop()
             if len(y_multiple) > 1: st.info(f"히스토그램은 현재 하나의 값 열('{y_val_for_hist}')에 대해서만 그려집니다. 색상 구분 열을 활용하세요.")
             fig = px.histogram(processed_df_for_chart, x=y_val_for_hist, color=group_by_col if group_by_col != "None" else None, nbins=st.session_state.hist_bins, title=f"{y_val_for_hist}의 분포" + (f" (색상: {group_by_col})" if group_by_col != "None" else ""))
@@ -998,7 +1004,7 @@ else:
             elif len(density_values) > 1 :
                 melted_df_density = pd.melt(processed_df_for_chart, value_vars=density_values, var_name='변수', value_name='값')
                 fig = px.histogram(melted_df_density, x='값', color='변수', marginal="rug", histnorm='probability density', barmode="overlay", opacity=0.7, title="선택된 열들의 밀도 플롯")
-            else: # density_values가 있지만, color 설정이 부적절한 경우 등
+            else: 
                 chart_placeholder.warning("밀도 플롯 설정을 확인해주세요."); st.stop()
 
         elif chart_type == '레이더 차트 (Radar Chart)':
@@ -1006,7 +1012,6 @@ else:
             if not radar_vals: chart_placeholder.warning("레이더 차트에 사용할 값 열을 선택해주세요."); st.stop()
             if radar_cat not in df_for_radar.columns: chart_placeholder.error(f"레이더 차트 범주 열 '{radar_cat}'이 데이터에 없습니다."); st.stop()
             
-            # 범주별로 여러 행이 있다면 평균 사용 (또는 다른 집계 방식 선택 UI 추가 가능)
             if not df_for_radar.groupby(radar_cat).size().eq(1).all(): 
                 st.info(f"레이더 차트: '{radar_cat}'별로 여러 행이 존재하여 각 값 열에 대해 평균값을 사용합니다.")
                 df_for_radar = df_for_radar.groupby(radar_cat, as_index=False)[radar_vals].mean()
@@ -1022,10 +1027,9 @@ else:
             max_r_val = 0
             if radar_vals and not df_for_radar[radar_vals].empty:
                 try: 
-                    # 모든 radar_vals 컬럼의 최대값을 찾음
                     numeric_radar_vals_df = df_for_radar[radar_vals].apply(pd.to_numeric, errors='coerce')
                     max_r_val = numeric_radar_vals_df.max().max()
-                    if pd.isna(max_r_val): max_r_val = 1 # 모든 값이 NaN일 경우
+                    if pd.isna(max_r_val): max_r_val = 1 
                 except Exception: max_r_val = 1 
             fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, max_r_val if max_r_val > 0 else 1])), showlegend=True, title=f"레이더 차트 (범주: {radar_cat})")
             fig = fig_radar
@@ -1041,9 +1045,9 @@ else:
         elif chart_type == '버블 차트 (Bubble Chart)':
             fig = px.scatter(processed_df_for_chart, x=scatter_x, y=scatter_y, color=scatter_color if scatter_color != "None" else None, size=scatter_size if scatter_size != "None" else None, hover_name=scatter_hover if scatter_hover != "None" else None, title=f"{scatter_x} vs {scatter_y} (크기: {scatter_size}, 색상: {scatter_color})")
 
-        else: # 일반 막대, 선, 누적 차트
+        else: 
             y_cols_to_aggregate = []
-            grouping_cols = [x_axis] if x_axis and x_axis in headers else [] # x_axis 유효성 검사
+            grouping_cols = [x_axis] if x_axis and x_axis in headers else [] 
             if not grouping_cols: chart_placeholder.error("X축이 선택되지 않았거나 유효하지 않아 차트를 생성할 수 없습니다."); st.stop()
 
             if group_by_col != "None" and group_by_col in headers:
@@ -1052,7 +1056,7 @@ else:
                 if group_by_col not in grouping_cols : grouping_cols.append(group_by_col)
                 color_col_for_chart = group_by_col
                 y_val_for_chart = y_single
-            else: # 그룹화 사용 안 함
+            else: 
                 if chart_type in ['막대 (Bar)']:
                     if not y_single or y_single not in numeric_headers: chart_placeholder.warning(f"막대 차트의 Y축을 선택해주세요 (숫자형). 현재 선택: {y_single}"); st.stop()
                     y_cols_to_aggregate = [y_single]
@@ -1074,26 +1078,22 @@ else:
             is_stacked_chart = (chart_type in ['누적 막대 (Stacked Bar)', '누적 영역 (Stacked Area)'])
             if y_secondary != "None" and y_secondary in numeric_headers and not is_stacked_chart:
                 fig = make_subplots(specs=[[{"secondary_y": True}]])
-                # 기본 Y축 트레이스 추가
                 if group_by_col != "None" and group_by_col in headers and y_val_for_chart and y_val_for_chart in processed_df_for_chart.columns:
                     unique_groups = processed_df_for_chart[group_by_col].unique()
                     for i, group_val in enumerate(unique_groups):
                         trace_data = processed_df_for_chart[processed_df_for_chart[group_by_col] == group_val]
                         if chart_type == '막대 (Bar)': fig.add_trace(go.Bar(x=trace_data[x_axis], y=trace_data[y_val_for_chart], name=f"{group_val} ({y_val_for_chart})", marker_color=px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]), secondary_y=False)
                         elif chart_type == '선 (Line)': fig.add_trace(go.Scatter(x=trace_data[x_axis], y=trace_data[y_val_for_chart], mode='lines+markers', name=f"{group_val} ({y_val_for_chart})", line=dict(color=px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)])), secondary_y=False)
-                else: # 그룹화 없음
+                else: 
                     if chart_type == '막대 (Bar)' and y_val_for_chart and y_val_for_chart in processed_df_for_chart.columns: fig.add_trace(go.Bar(x=processed_df_for_chart[x_axis], y=processed_df_for_chart[y_val_for_chart], name=y_val_for_chart), secondary_y=False)
                     elif chart_type == '선 (Line)' and y_multi_for_chart:
                         for i, y_col_line in enumerate(y_multi_for_chart): 
                             if y_col_line in processed_df_for_chart.columns:
                                 fig.add_trace(go.Scatter(x=processed_df_for_chart[x_axis], y=processed_df_for_chart[y_col_line], mode='lines+markers', name=y_col_line, line=dict(color=px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)])), secondary_y=False)
                 
-                # 보조 Y축 트레이스 추가 (원본 df에서 집계)
                 if x_axis in df.columns and y_secondary in df.columns: 
-                    # 보조 Y축은 보통 다른 스케일이므로 원본 df에서 직접 집계 (예: 평균)
                     secondary_base_data = df.groupby(x_axis, as_index=False)[y_secondary].mean() 
-                    # 기본 Y축의 X축 값과 일치시키기 위해 merge
-                    unique_x_in_primary = processed_df_for_chart[[x_axis]].drop_duplicates().sort_values(by=x_axis) # processed_df_for_chart 사용
+                    unique_x_in_primary = processed_df_for_chart[[x_axis]].drop_duplicates().sort_values(by=x_axis) 
                     temp_secondary_df = pd.merge(unique_x_in_primary, secondary_base_data, on=x_axis, how='left')
                     fig.add_trace(go.Scatter(x=temp_secondary_df[x_axis], y=temp_secondary_df[y_secondary], mode='lines+markers', name=f"{y_secondary} (보조)", yaxis='y2', line=dict(dash='dot')), secondary_y=True)
                 
@@ -1102,10 +1102,9 @@ else:
                 fig.update_yaxes(title_text=f"기본 Y ({agg_method})", secondary_y=False); fig.update_yaxes(title_text=f"{y_secondary} (보조, 평균)", secondary_y=True)
                 if chart_type == '막대 (Bar)' and group_by_col != "None" and group_by_col in headers: fig.update_layout(barmode='group')
             
-            else: # 보조 Y축 없음 또는 누적 차트
+            else: 
                 y_plot_val = y_val_for_chart if y_val_for_chart else y_multi_for_chart
                 if not y_plot_val: chart_placeholder.warning("Y축 값을 선택해주세요."); st.stop()
-                # y_plot_val의 모든 컬럼이 processed_df_for_chart에 있는지 확인
                 if isinstance(y_plot_val, list) and not all(col in processed_df_for_chart.columns for col in y_plot_val):
                     missing_cols = [col for col in y_plot_val if col not in processed_df_for_chart.columns]
                     chart_placeholder.error(f"Y축 값으로 선택된 열 {missing_cols}이(가) 데이터에 없습니다. 집계 후 사라졌을 수 있습니다."); st.stop()
@@ -1116,7 +1115,7 @@ else:
                 if chart_type == '막대 (Bar)': fig = px.bar(processed_df_for_chart, x=x_axis, y=y_plot_val, color=color_col_for_chart if color_col_for_chart in processed_df_for_chart.columns else None, barmode='group' if color_col_for_chart and color_col_for_chart in processed_df_for_chart.columns else 'relative', title=f"{x_axis} 별 Y값 ({agg_method})")
                 elif chart_type == '누적 막대 (Stacked Bar)':
                     if color_col_for_chart and color_col_for_chart in processed_df_for_chart.columns: fig = px.bar(processed_df_for_chart, x=x_axis, y=y_plot_val, color=color_col_for_chart, barmode='stack', title=f"{x_axis} 별 {color_col_for_chart} 그룹 {y_plot_val} (누적, {agg_method})")
-                    else: # 그룹화 기준 없이 여러 Y축 누적
+                    else: 
                         if not isinstance(y_plot_val, list) or len(y_plot_val) < 1: chart_placeholder.warning("누적 막대 차트에 여러 Y축을 선택하거나 그룹화 기준을 사용하세요."); st.stop()
                         melted_df = pd.melt(processed_df_for_chart, id_vars=[x_axis], value_vars=y_plot_val, var_name='범례', value_name='값')
                         fig = px.bar(melted_df, x=x_axis, y='값', color='범례', barmode='stack', title=f"{x_axis} 별 Y값 누적 ({agg_method})")
